@@ -10,6 +10,8 @@
  *   <script>
  *     window.InAppGuideConfig = {
  *       position: 'top-right',        // 'top-right' | 'bottom-right'
+ *       shareUrl: 'https://www.dudabrunet.com/links', // link limpo usado em "Copiar link"
+ *       appendSource: false,          // true = adiciona ?utm_source=<app>_inapp no link
  *       androidIntent: true,          // mostra botão "Abrir no Chrome" no Android
  *       autoRedirectAndroid: false,   // tenta abrir no Chrome sem pedir nada
  *       onShow: function (info) {}
@@ -30,6 +32,8 @@
 
     const DEFAULTS = {
         position: 'top-right',
+        shareUrl: 'https://www.dudabrunet.com/links',
+        appendSource: false,
         androidIntent: true,
         autoRedirectAndroid: false,
         onShow: null
@@ -42,30 +46,33 @@
             step1:    'Toque nos <strong>(···)</strong> no canto superior direito',
             step2ios: 'Selecione <strong>Abrir no navegador externo / Safari</strong>',
             step2and: 'Selecione <strong>Abrir no navegador externo / Chrome</strong>',
-            hint:     'Siga as instruções acima',
+            hint:     'Siga as instruções acima para visualizar os links de Duda Brunet',
             copy:     'Copiar link',
             copied:   'Link copiado!',
-            chrome:   'Abrir no Chrome'
+            chrome:   'Abrir no Chrome',
+            tip:      'Agora abra o <strong>{b}</strong> do seu celular, cole na barra de endereço e pronto.'
         },
         en: {
             title:    'Improve your experience',
             step1:    'Tap the <strong>(···)</strong> in the top right',
             step2ios: 'Select <strong>Open in external browser / Safari</strong>',
             step2and: 'Select <strong>Open in external browser / Chrome</strong>',
-            hint:     'Follow the instructions above',
+            hint:     'Follow the instructions above to view Duda Brunet’s links',
             copy:     'Copy link',
             copied:   'Link copied!',
-            chrome:   'Open in Chrome'
+            chrome:   'Open in Chrome',
+            tip:      'Now open <strong>{b}</strong> on your phone, paste it in the address bar and you’re in.'
         },
         es: {
             title:    'Mejora tu experiencia',
             step1:    'Toca los <strong>(···)</strong> en la esquina superior derecha',
             step2ios: 'Elige <strong>Abrir en navegador externo / Safari</strong>',
             step2and: 'Elige <strong>Abrir en navegador externo / Chrome</strong>',
-            hint:     'Sigue las instrucciones de arriba',
+            hint:     'Sigue las instrucciones de arriba para ver los links de Duda Brunet',
             copy:     'Copiar enlace',
             copied:   '¡Enlace copiado!',
-            chrome:   'Abrir en Chrome'
+            chrome:   'Abrir en Chrome',
+            tip:      'Ahora abre <strong>{b}</strong> en tu celular, pega el enlace en la barra de direcciones y listo.'
         }
     };
 
@@ -114,12 +121,30 @@
     }
 
     // Intent do Android: tenta abrir a URL atual direto no Chrome
+    function targetUrl() {
+        let url = CFG.shareUrl || (location.origin + location.pathname);
+        if (CFG.appendSource) {
+            try {
+                const x = new URL(url);
+                x.searchParams.set('utm_source', appId + '_inapp');
+                url = x.toString();
+            } catch (e) { /* mantém o link limpo */ }
+        }
+        return url;
+    }
+
+    // Texto curto pra "barra de endereço" do tooltip: sem https:// e sem www.
+    function prettyUrl() {
+        return targetUrl().replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '');
+    }
+
     function chromeIntentUrl() {
-        const u = new URL(location.href);
+        const full = targetUrl();
+        const u = new URL(full);
         return 'intent://' + u.host + u.pathname + u.search + u.hash +
                '#Intent;scheme=' + u.protocol.replace(':', '') +
                ';package=com.android.chrome' +
-               ';S.browser_fallback_url=' + encodeURIComponent(location.href) + ';end';
+               ';S.browser_fallback_url=' + encodeURIComponent(full) + ';end';
     }
 
     function copyToClipboard(text) {
@@ -187,14 +212,27 @@
         #iag-overlay.iag-visible { opacity: 1; }
         #iag-overlay *, #iag-overlay *::before, #iag-overlay *::after { box-sizing: border-box; }
 
-        #iag-popup {
+        /* Card e hint vivem na mesma coluna: o hint sempre fica logo abaixo do card */
+        #iag-stack {
             position: absolute;
             right: 12px;
             top: calc(12px + env(safe-area-inset-top, 0px));
+            width: min(296px, calc(100vw - 48px));
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        #iag-overlay.iag-bottom #iag-stack {
+            top: auto;
+            bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            flex-direction: column-reverse;
+        }
+
+        #iag-popup {
+            position: relative;
             background: var(--iag-popup);
             border-radius: 20px;
             padding: 22px 20px 18px;
-            width: min(296px, calc(100vw - 48px));
             box-shadow:
                 0 2px 4px rgba(0,0,0,0.04),
                 0 8px 24px rgba(0,0,0,0.10),
@@ -204,11 +242,7 @@
             transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1),
                         opacity   0.38s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        #iag-overlay.iag-bottom #iag-popup {
-            top: auto;
-            bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-            transform: translateY(8px) scale(0.96);
-        }
+        #iag-overlay.iag-bottom #iag-popup { transform: translateY(8px) scale(0.96); }
         #iag-overlay.iag-visible #iag-popup { transform: translateY(0) scale(1); opacity: 1; }
 
         #iag-arrow {
@@ -276,32 +310,67 @@
         }
 
         #iag-hint {
-            position: absolute;
-            left: 50%;
-            bottom: calc(18% + env(safe-area-inset-bottom, 0px));
-            transform: translateX(-50%) translateY(6px);
-            max-width: calc(100vw - 32px);
             background: var(--iag-hint-bg);
             border: 1px solid var(--iag-hint-bd);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border-radius: 100px;
-            padding: 11px 24px;
+            border-radius: 16px;
+            padding: 11px 16px;
             font-size: 12.5px; font-weight: 500;
+            line-height: 1.45;
             color: var(--iag-hint);
             text-align: center;
             box-shadow: 0 4px 20px rgba(0,0,0,0.06);
             opacity: 0;
+            transform: translateY(6px);
             transition: opacity 0.4s ease 0.22s,
                         transform 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.22s;
             pointer-events: none;
             user-select: none;
         }
-        #iag-overlay.iag-bottom #iag-hint { bottom: auto; top: calc(18% + env(safe-area-inset-top, 0px)); }
-        #iag-overlay.iag-visible #iag-hint { opacity: 1; transform: translateX(-50%) translateY(0); }
+        #iag-overlay.iag-visible #iag-hint { opacity: 1; transform: translateY(0); }
+
+        /* Botão de copiar em estado "copiado" */
+        .iag-btn-ok { color: var(--iag-n2b); border-color: var(--iag-n2b); }
+        .iag-btn-ok svg { width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; }
+
+        /* Tooltip que explica o que fazer depois de copiar */
+        .iag-tip {
+            display: grid;
+            grid-template-rows: 0fr;
+            opacity: 0;
+            margin-top: 0;
+            transition: grid-template-rows 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+                        opacity 0.3s ease,
+                        margin-top 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .iag-tip.iag-open { grid-template-rows: 1fr; opacity: 1; margin-top: 12px; }
+        .iag-tip-inner { overflow: hidden; min-height: 0; }
+        .iag-tip-card {
+            border-radius: 13px;
+            background: var(--iag-step-bg);
+            padding: 12px;
+        }
+        .iag-tip-text {
+            margin: 0 0 10px;
+            font-size: 12.5px; line-height: 1.45;
+            color: var(--iag-text);
+        }
+        .iag-tip-text strong { font-weight: 600; color: var(--iag-title); }
+        .iag-bar {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--iag-popup);
+            border: 1px solid var(--iag-ghost-bd);
+            border-radius: 100px;
+            padding: 8px 12px;
+            font-size: 12px; font-weight: 500;
+            color: var(--iag-title);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .iag-bar svg { width: 11px; height: 11px; flex-shrink: 0; opacity: 0.55; }
 
         @media (prefers-reduced-motion: reduce) {
-            #iag-overlay, #iag-popup, #iag-hint, .iag-btn { transition: none !important; }
+            #iag-overlay, #iag-popup, #iag-hint, .iag-btn, .iag-tip { transition: none !important; }
         }
     `;
 
@@ -371,6 +440,7 @@
             const showChrome = CFG.androidIntent && isAndroid;
 
             overlay.innerHTML =
+                '<div id="iag-stack">' +
                 '<div id="iag-popup">' +
                     '<div id="iag-arrow"></div>' +
                     '<p id="iag-title">' + t.title + '</p>' +
@@ -386,8 +456,18 @@
                         (showChrome ? '<button id="iag-chrome" type="button" class="iag-btn iag-btn-primary">' + t.chrome + '</button>' : '') +
                         '<button id="iag-copy" type="button" class="iag-btn">' + t.copy + '</button>' +
                     '</div>' +
+                    '<div id="iag-tip" class="iag-tip" role="status" aria-live="polite">' +
+                        '<div class="iag-tip-inner"><div class="iag-tip-card">' +
+                            '<p class="iag-tip-text">' + t.tip.replace('{b}', isIOS ? 'Safari' : 'Chrome') + '</p>' +
+                            '<div class="iag-bar">' +
+                                '<svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><rect x="2" y="5.2" width="8" height="5.3" rx="1.3" fill="currentColor"/><path d="M4 5.2V3.9a2 2 0 0 1 4 0v1.3" stroke="currentColor" stroke-width="1.2"/></svg>' +
+                                '<span>' + prettyUrl() + '</span>' +
+                            '</div>' +
+                        '</div></div>' +
+                    '</div>' +
                 '</div>' +
-                '<div id="iag-hint" aria-hidden="true">' + t.hint + '</div>';
+                '<div id="iag-hint" aria-hidden="true">' + t.hint + '</div>' +
+                '</div>';
 
             document.body.appendChild(overlay);
             this._overlay = overlay;
@@ -418,12 +498,17 @@
 
                 const copyBtn = target.closest('#iag-copy');
                 if (copyBtn) {
-                    copyToClipboard(location.href).then(function () {
-                        copyBtn.textContent = t.copied;
-                        setTimeout(function () { copyBtn.textContent = t.copy; }, 1800);
+                    const tip = overlay.querySelector('#iag-tip');
+                    copyToClipboard(targetUrl()).then(function () {
+                        copyBtn.classList.add('iag-btn-ok');
+                        copyBtn.innerHTML =
+                            '<svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2.5 6.4l2.3 2.3 4.7-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+                            t.copied;
+                        if (tip) tip.classList.add('iag-open');
                     }).catch(function () {
                         // Último recurso: deixa o usuário copiar manualmente
-                        window.prompt(t.copy, location.href);
+                        window.prompt(t.copy, targetUrl());
+                        if (tip) tip.classList.add('iag-open');
                     });
                     return;
                 }
